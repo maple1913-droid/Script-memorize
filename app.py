@@ -7,13 +7,20 @@ st.set_page_config(page_title="뮤지컬 <썸데이> 지해 대사 암기 연습
 
 @st.cache_data
 def load_script_data():
-    # 업로드된 엑셀 파일 찾기
-    excel_files = [f for f in os.listdir('.') if f.endswith('.xlsx')]
-    if not excel_files:
-        return None, "엑셀 파일(.xlsx)을 찾을 수 없습니다."
+    # 현재 디렉토리의 파일 목록 확인 (디버깅용)
+    files = os.listdir('.')
+    excel_files = [f for f in files if f.lower().endswith(('.xlsx', '.xls'))]
     
+    if not excel_files:
+        return None, f"엑셀 파일을 찾을 수 없습니다. 현재 폴더 파일 목록: {files}"
+    
+    # 첫 번째로 발견된 엑셀 파일 사용
     filename = excel_files[0]
-    df = pd.read_excel(filename, sheet_name=0)
+    
+    try:
+        df = pd.read_excel(filename, sheet_name=0)
+    except Exception as e:
+        return None, f"엑셀 파일을 읽는 중 오류가 발생했습니다: {str(e)}"
     
     # 엑셀 데이터에서 '지해' 대사 추출 및 직전 대사를 CUE로 매핑
     pairs = []
@@ -44,7 +51,6 @@ if script_pairs is None:
     st.error(file_source)
     st.stop()
 
-# 전체 대사를 하나의 연습 세트로 구성 (또는 필요시 구간별 슬라이싱 가능)
 total_lines = len(script_pairs)
 
 # 세션 상태 초기화
@@ -53,7 +59,7 @@ if "line_index" not in st.session_state:
 
 # 상단 진행 상황 표시
 st.progress((st.session_state.line_index + 1) / total_lines)
-st.caption(f"전체 진행 상황: {st.session_state.line_index + 1} / {total_lines} 대사 (출처: {file_source})")
+st.caption(f"전체 진행 상황: {st.session_state.line_index + 1} / {total_lines} 대사 (불러온 파일: {file_source})")
 
 st.markdown("---")
 
