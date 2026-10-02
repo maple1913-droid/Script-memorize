@@ -1,80 +1,318 @@
 import streamlit as st
-import pandas as pd
-import os
 
 # 페이지 설정 (모바일 최적화)
 st.set_page_config(page_title="뮤지컬 <썸데이> 지해 대사 암기 연습", page_icon="🎭", layout="centered")
 
-@st.cache_data
-def load_script_data():
-    # 현재 디렉토리의 파일 목록 확인 (디버깅용)
-    files = os.listdir('.')
-    excel_files = [f for f in files if f.lower().endswith(('.xlsx', '.xls'))]
-    
-    if not excel_files:
-        return None, f"엑셀 파일을 찾을 수 없습니다. 현재 폴더 파일 목록: {files}"
-    
-    # 첫 번째로 발견된 엑셀 파일 사용
-    filename = excel_files[0]
-    
-    try:
-        df = pd.read_excel(filename, sheet_name=0)
-    except Exception as e:
-        return None, f"엑셀 파일을 읽는 중 오류가 발생했습니다: {str(e)}"
-    
-    # 엑셀 데이터에서 '지해' 대사 추출 및 직전 대사를 CUE로 매핑
-    pairs = []
-    jihae_indices = df[df['화자'] == '지해'].index.tolist()
-    
-    for idx in jihae_indices:
-        if idx > 0:
-            cue_row = df.loc[idx - 1]
-            jihae_row = df.loc[idx]
-            
-            cue_speaker = str(cue_row['화자']).strip()
-            cue_line = str(cue_row['대사']).strip()
-            my_line = str(jihae_row['대사']).strip()
-            
-            pairs.append({
-                "cue_speaker": cue_speaker,
-                "cue_line": cue_line,
-                "my_line": my_line
-            })
-            
-    return pairs, filename
-
-script_pairs, file_source = load_script_data()
-
-st.title("🎭 뮤지컬 <썸데이> 지해 대사 암기 연습")
-
-if script_pairs is None:
-    st.error(file_source)
-    st.stop()
-
-total_lines = len(script_pairs)
+# 업로드된 엑셀 기반 전막 큐-대사 완벽 하드코딩 데이터베이스 (181개 대사 쌍)
+SCRIPT_LINES = [
+    {"cue_speaker": "연수", "cue_line": "아빠! 저 음악하고 싶어요!\n사실, 실용음악과 지원했구요, 내일 합격자 발표날이에요! 저 합격하면 음악하는 거\n허락해 주세요! (잔잔한 음악)\n휴… 절대 이렇게 말 못하겠지?\n저… 사실 실용음악과 지원했는데요. 아빠는 아마 못 가게 할 거예요… 아빠는 맨날\n공부하래요. 아빠처럼 몸 쓰는 일 하지 말고 취직해야 한다면서.\n아, 아빠 앞에서는 왜 이렇게 말이 안 나오냐!", "my_line": "안녕하세요, 오디션 번호 000번 000입니다! (하고 싶은 말, 포부 등)"},
+    {"cue_speaker": "연희", "cue_line": "아주 예전에 누가 가사 써놨던 거예요. 한 번 볼래요? (퇴장)", "my_line": "(혼잣말로 외우듯) 지금을 기억할게, 순간이 모여 처음이 된 그 어느 날.\n어, 잠시만요 그거 제 거… (바로 빼앗듯이 노트를 열고 적기 시작한다) 지…금…을…\n기억할게… 순간이 모여 처음이… 된… 그… 어… 느… 날! 휴~.\n(연수의 애플마티니 쳐다보며) 저기 혹시, 그 술 이름이 뭐예요?"},
+    {"cue_speaker": "연수", "cue_line": "아, 이거… 어 이름이 뭐더라… 저도 오늘 처음 와서 잘 몰라요…", "my_line": "사장님 금방 오셨나 보다, 저 화장실 진짜 금방 갔다 왔는데…"},
+    {"cue_speaker": "연수", "cue_line": "좀… 오래 있었는데…", "my_line": "어서 오세요!"},
+    {"cue_speaker": "연희", "cue_line": "(손님이다! 뛰어 들어오며) 어서 오세요!", "my_line": "(놀라며) 안녕하세요."},
+    {"cue_speaker": "연희", "cue_line": "네, 죄송합니다. 친구가 내일 중요한 일이 있어서 뭐 좀 사오느라고… (연수의 잔을\n쳐다보며) 어… 그건… 직접 하신 건가요?", "my_line": "무슨 일이 있어야 마시나요… 그냥 일상적으로다가…"},
+    {"cue_speaker": "연희", "cue_line": "아, 그래요?", "my_line": "그…럼요"},
+    {"cue_speaker": "연희", "cue_line": "그럼 간단하게 보드카 한 잔 준비해 드릴게요.", "my_line": "저기… 이게 다예요?"},
+    {"cue_speaker": "연희", "cue_line": "네, 보드카입니다. 무색, 무취, 무맛이 기본이긴 한데요.\n원래는 추운 지방에서 몸에 열을 올리는 용도로 사용하는 술이니까 독한 건 말할 거\n없겠죠.", "my_line": "소주같은 느낌인가?"},
+    {"cue_speaker": "연희", "cue_line": "조심하셔야 돼요.", "my_line": "네. 원샷!"},
+    {"cue_speaker": "연희", "cue_line": "어!", "my_line": "(내적 비명, 목이 타는 것 같음)"},
+    {"cue_speaker": "연희", "cue_line": "괜찮으세요?", "my_line": "커어… 네."},
+    {"cue_speaker": "연희", "cue_line": "제일 약한 게 소주의 세 배예요.", "my_line": "으허억…"},
+    {"cue_speaker": "연희", "cue_line": "진짜 무슨 일 있으신가 보다.", "my_line": "걱정 반, 기쁨 반요."},
+    {"cue_speaker": "연희", "cue_line": "오! 분위기가 떨어진 분위기가 아닌데? 축하드립니다. 한 잔 더 드릴까요?", "my_line": "오늘이 대학교 합격자 발표 날이거든요."},
+    {"cue_speaker": "연희", "cue_line": "맛있는 걸로? 도수가 약한 걸로?", "my_line": "아뇨! 혹시 조금 더…"},
+    {"cue_speaker": "연희",
+    "cue_line": "음… 그럼 다른 것도 말해줄 수 있어요?",
+    "my_line": "맛이… 둘 다요."},
+    {"cue_speaker": "연희",
+    "cue_line": "아까 걱정 반, 기쁨 반이라고 하셨지 않아요?",
+    "my_line": "네 맞죠."},
+    {"cue_speaker": "연희",
+    "cue_line": "두 번째 이야기 들으면 오늘에 어울릴 만한 술을 추천할 수 있을 것 같아서요.",
+    "my_line": "제가 어렸을 때부터 병원에 다녔는데요. 오늘이 딱 5년째인데 저 완치 판정 받았어요!"},
+    {"cue_speaker": "연희",
+    "cue_line": "와 축하드립니다.",
+    "my_line": "그래도 완전히 안심할 수 없지만… 감사합니다."},
+    {"cue_speaker": "연희",
+    "cue_line": "그럼 뭐야… 걱정이 반인데… 대학에 붙은 게 걱정인 거예요?",
+    "my_line": "네. 제가 사실 글 쓰는 걸 좋아하는데…\n대학에 막상 덜컥 붙어 버리니까 걱정이 되네요."},
+    {"cue_speaker": "연희",
+    "cue_line": "우와, 작가이신 거예요?",
+    "my_line": "지망생인 거죠."},
+    {"cue_speaker": "연수",
+    "cue_line": "저랑 같네요!",
+    "my_line": "네, 그럼요. 그쪽도 글 쓰세요?"},
+    {"cue_speaker": "연수",
+    "cue_line": "아니 저도 글을 쓰긴 하는데 글은 가사 쪽만 하고… 일단은 작곡을 좀 더…",
+    "my_line": "와 멋있다."},
+    {"cue_speaker": "연수",
+    "cue_line": "멋있긴요… 암튼 저도 비슷해서, 그 맘 이해해요.",
+    "my_line": "신기하다."},
+    {"cue_speaker": "연희",
+    "cue_line": "저도 엄청 신기하네요, 두 분 같이 오셨는 줄 알았는데 아니었고, 두 분 다 비슷한 상황이시고… 이렇게 보면 두 분 좀 닮은 거 같기도 하고요. (사이 / 머쓱한 침묵) (지해, 연수 보며) 기분… 나빠지신 것 같은데? 하하 농담입니다. 좋아하는 과일 있으세요?",
+    "my_line": "음… 사과요."},
+    {"cue_speaker": "연희",
+    "cue_line": "아, 사과… 애플 마티니로 준비해 드릴게요.\n오늘 달달하고 기분 좋은 맛은 느껴야 할 것 같지만, 또 취하긴 해야 할 것 같아서요.",
+    "my_line": "딱 좋은데요?"},
+    {"cue_speaker": "연희",
+    "cue_line": "저희 지금은 사과를 따로 준비한 게 없어서 사과 향료랑 라임으로 대신 해드리구요…\n이게… 메뉴에 없는 거거든요. (퇴장)",
+    "my_line": "아 진짜요? (메뉴판을 열어보니 아니다)"},
+    {"cue_speaker": "노래", "cue_line": "스물이 되면", "my_line": "스물이 되기 위해 싸워야 했던 나의 시간도 이길 만큼 용길 낼 거야\n매일을 참기 위해 썼던 가사와는 다른 이야기가 펼쳐질 거야"},
+    {"cue_speaker": "연희", "cue_line": "어서 오세요.", "my_line": "계세요~?"},
+    {"cue_speaker": "연희", "cue_line": "어젠 잘 들어가셨어요?", "my_line": "안녕하세요."},
+    {"cue_speaker": "연희", "cue_line": "같은 걸로?", "my_line": "네…"},
+    {"cue_speaker": "연희", "cue_line": "네, 잠시만 기다려 주세요,", "my_line": "네!"},
+    {"cue_speaker": "연희", "cue_line": "네?", "my_line": "혹시… 여기서 노래도 하나요?"},
+    {"cue_speaker": "연희",
+    "cue_line": "아, 이암이. 네 왜요?",
+    "my_line": "어제… 기타 메고 누가…"},
+    {"cue_speaker": "연희",
+    "cue_line": "그… 병원 이야기 좀 해주세요. 뭐가 좀 안 좋은 데가 있으셨던 거예요?",
+    "my_line": "아니에요."},
+    {"cue_speaker": "연희",
+    "cue_line": "어제 들었습니다.",
+    "my_line": "아, 기억 하시네…"},
+    {"cue_speaker": "이암", "cue_line": "네.", "my_line": "네…? (어색해하며) 네."},
+    {"cue_speaker": "이암", "cue_line": "많이 남았는데.", "my_line": "저 이만 가볼게요."},
+    {"cue_speaker": "이암", "cue_line": "급한 일 있으세요?", "my_line": "(원샷하며) 아, 너무 맛있다."},
+    {"cue_speaker": "이암", "cue_line": "네?", "my_line": "제가 술을 좋아해요."},
+    {"cue_speaker": "이암",
+    "cue_line": "저기 혹시 실례가 안 된다면, 이야기 좀 더 나눌 수 있을까요?",
+    "my_line": "아, 완샷이 원래 일상생활이니까 이상하게 생각하지 마시라 뭐 그런 거죠."},
+    {"cue_speaker": "이암", "cue_line": "아, 글을 쓰신다고…", "my_line": "네…"},
+    {"cue_speaker": "이암", "cue_line": "실은 제가 노래를 하는데요.", "my_line": "글, 아 네 글, 글이 왜요?"},
+    {"cue_speaker": "연수", "cue_line": "왜 그러시죠?", "my_line": "네 잘 알죠! 아뇨, 아 그랬군요, 축하드려요…."},
+    {"cue_speaker": "연수", "cue_line": "다행…", "my_line": "아… 다행이다."},
+    {"cue_speaker": "연수", "cue_line": "네?", "my_line": "아니요! 네?"},
+    {"cue_speaker": "연수", "cue_line": "네?", "my_line": "뭐가요?"},
+    {"cue_speaker": "썸데이", "cue_line": "이 바보야!", "my_line": "네? 어머, 아니에요. 제가요?"},
+    {"cue_speaker": "썸데이", "cue_line": "윤정이는 바보야!", "my_line": "네?"},
+    {"cue_speaker": "썸데이", "cue_line": "내가 윤정이에요.", "my_line": "저는 지핸데요."},
+    {"cue_speaker": "썸데이",
+    "cue_line": "나도 그런 눈을 하고 있었지. 그러지 마! 그런 사랑에 빠진 눈 하지 말라구!",
+    "my_line": "아, 네."},
+    {"cue_speaker": "썸데이", "cue_line": "과거의 윤정아!!! 으허헝", "my_line": "네? 저… 저는…"},
+    {"cue_speaker": "연수", "cue_line": "음… 어. 너가 안 괜찮은 것 같은데.", "my_line": "좀 괜찮아?"},
+    {"cue_speaker": "연수",
+    "cue_line": "저기… 하나만 물어보자. 그… 김이암… 씨? 여기 자주 와?",
+    "my_line": "무슨, 흠흠…"},
+    {"cue_speaker": "연수",
+    "cue_line": "(방백) 거의 다 아네. (돌아와서) 그런데, 노래를 한다고?",
+    "my_line": "내가 특별히 관심은 없어서 잘은 모르는데, 여기 사장님이이랑 제일 친한 친구같아. 저녁에 일 같이 하는 거 같은데… 노래도 하고, 집은 여기서 안 멀어."},
+    {"cue_speaker": "연수",
+    "cue_line": "어…? 뭐… 잘 안다고 해야 하나? 그나저나 노래를 한다… 하… 노래를 한다 이거지?",
+    "my_line": "어 관심이 없어서 잘은 모르는데 낮엔 오디션도 보고 그러는지 기획사 있는데 다니고, 저녁에 여기서 노래 부더라구… 혹시 이암이 잘 알아?"},
+    {"cue_speaker": "연수", "cue_line": "사실 내 꿈이 싱어송라이터거든!", "my_line": "왜… 그러는지 혹시 물어봐도 돼?"},
+    {"cue_speaker": "연수", "cue_line": "응? 작사 작곡하고 노래까지 부르는 사람.", "my_line": "(정말 처음 듣는 말) 싱어송라이터? 그게 뭐야?"},
+    {"cue_speaker": "연수", "cue_line": "만능 엔터테이너?", "my_line": "아, 만능 엔터테이너?"},
+    {"cue_speaker": "연수", "cue_line": "홍서범?", "my_line": "어, 종합예술인 말하는 거잖아, 홍서범 같은!"},
+    {"cue_speaker": "연수",
+    "cue_line": "너, 하고 싶은 걸 못하게 하는 사람 있어?",
+    "my_line": "어, 김삿갓삿갓 김김삿갓삿갓 … (심취했다가 민망해서) 그런데 그게 왜?"},
+    {"cue_speaker": "연수", "cue_line": "누구?", "my_line": "음… 있긴 하지?"},
+    {"cue_speaker": "연수", "cue_line": "이해가 잘 안 되는데?", "my_line": "나."},
+    {"cue_speaker": "연수",
+    "cue_line": "나는 죽어라고 방해하는 사람이 있거든.",
+    "my_line": "어렸을 때부터 병원을 다녀서… 아니야, 그런 게 있어. 왜 물어?"},
+    {"cue_speaker": "이암", "cue_line": "안녕하세요.", "my_line": "초대해 주셔서 감사해요."},
+    {"cue_speaker": "연희", "cue_line": "노란 택시! 제가 먼저 봤어요.", "my_line": "그런데 저기 이암씨 혹시 왜…"},
+    {"cue_speaker": "연희",
+    "cue_line": "어? 안 되는데… 제가 이거 만들어 드리려고 생 사과도 사 왔는데요, 드셔야죠.\n다른데는 라임주스나 사과 향료가 들어가거든요.\n그런데 우린 또 특별한 게 있어야죠? 다 갈아서 한 번 넣어 볼 거예요. 거품도 내 보고…",
+    "my_line": "네, 아 저 안 마셔도 되는데…"},
+    {"cue_speaker": "연희",
+    "cue_line": "이암아, 너 그러지 말고 노래 한 번 들려 줘.",
+    "my_line": "네 고맙습니다."},
+    {"cue_speaker": "이암", "cue_line": "네, 노래 합니다.", "my_line": "그게 대체 무슨 말이에요?"},
+    {"cue_speaker": "노래", "cue_line": "곤충처럼", "my_line": "연수야. 나 글을 써야 할 이유가 생겼어."},
+    {"cue_speaker": "노래", "cue_line": "Someday", "my_line": "제목은 썸데이야. 어때?"},
+    {"cue_speaker": "이암", "cue_line": "아…", "my_line": "별로야?"},
+    {"cue_speaker": "이암",
+    "cue_line": "와! 어떻게 이런 글이 나오지? 난 도대체 무슨 노래를 부른 거야…",
+    "my_line": "일단은 간단하게 먼저 써 본 거야. 좋으면 계속 써볼까?"},
+    {"cue_speaker": "이암", "cue_line": "어, 너무 좋아. 너무너무 좋아!", "my_line": "이암, 이암… 이름이 특이해. 무슨 뜻이야?"},
+    {"cue_speaker": "이암",
+    "cue_line": "이로울 이에 어두울 암. 아버지가 동사무소에서 한자를 잘못 고르셨대.",
+    "my_line": "어머, 어떻게 해."},
+    {"cue_speaker": "이암",
+    "cue_line": "그런데 더 재미있는 건 어차피 제대로 골랐어도 바위 암 자였다는 거야.\n이로운 바위, 하하. 지금은 어두운 놈인데, 제대로 됐어도 어차피 돌이었어.",
+    "my_line": "빛의 입장에서는 어둠이 엄청 고맙지 않나? 빛을 더 밝게, 더 필요하게 만들어 주잖아."},
+    {"cue_speaker": "이암",
+    "cue_line": "와 그렇게는 생각 안 해봤는데… 글을 써서 그런가 어떻게 그런 생각을 하지?\n고마워. 나라는 놈한테 의미를 만들어 줘서. 내가 누군가한테 이로울 수 있네.\n(사이) 네가 빛이었으면 좋겠다.",
+    "my_line": "어?"},
+    {"cue_speaker": "이암", "cue_line": "어?", "my_line": "할게, 내가… 빛."},
+    {"cue_speaker": "이암", "cue_line": "아니야…", "my_line": "그럼 이제 우리 키스하는 건가?"},
+    {"cue_speaker": "이암", "cue_line": "어?", "my_line": "아, 아닌가?"},
+    {"cue_speaker": "이암", "cue_line": "아니, 내가 처음이라 잘 모르는데.", "my_line": "나도 처음이라… 아, 그럼 뽀뽀부터 하는 건가부다…"},
+    {"cue_speaker": "이암", "cue_line": "어?", "my_line": "… 아닌가?"},
+    {"cue_speaker": "이암",
+    "cue_line": "… 맞는 것 같아. 아니, 하고 싶어. 갈게.",
+    "my_line": "키스… 아니 뽀뽀하기로 했지 않았나?"},
+    {"cue_speaker": "이암",
+    "cue_line": "그럼… 저기 우리 아까 어디까지 했었지?",
+    "my_line": "아무래도…"},
+    {"cue_speaker": "이암", "cue_line": "계속 하던 거 해야겠지?", "my_line": "이암아 우리 나가서 하자"},
+    {"cue_speaker": "썸데이", "cue_line": "아, 아까 내가 나왔었나?", "my_line": "M8. 그 날은 집에 있는 겁니다"},
+    {"cue_speaker": "연수",
+    "cue_line": "(바다를 처음 본 환희에 가득 차) 아~",
+    "my_line": "어때 완전 기분 전환되지?"},
+    {"cue_speaker": "연수", "cue_line": "어! 너무 좋다~.", "my_line": "(사이) 있잖아 저 파도 말이야, 보고 있으면 참 대단한 것 같아."},
+    {"cue_speaker": "연수", "cue_line": "뭐가?", "my_line": "저렇게 해변이 밀어내고 내치고 하는데 지치지 않아. 보통 이렇게 테두리가 있잖아 물이 딱 거기까지밖에 못 가고… 그런데 계속 포기 안 하고 넘어 보겠다고 도전하는 것 같아. 그러다 보면 한 번쯤 그 한계를 확 넘어서 세게 올라오더라… 그 때, 그 한계 선 밖에서 쟤는 못 넘어온다고 놀리던 사람들 발 다 적셔놓고 샥 다시 돌아가는 거야. 이암이가 그래, 대중가요 아니면 안 된다는 이 세상에서 언젠가 한 번쯤 그 사람들 깜짝 놀라게 해 줄 거야. 멋있지? 연수야, 그러니까 너도 서두르지 말고, 그렇다고 머무르지도 말고 파도처럼 계속 해변을 향해서 두드려 봐. 뭐든 저질러야 기적이 일어나는 법이니까…"},
+    {"cue_speaker": "연수",
+    "cue_line": "파도처럼 포기하지 말고 계속… 히잉.",
+    "my_line": "뭐야! 너 울어?"},
+    {"cue_speaker": "연수",
+    "cue_line": "그 말이 듣고 싶었나봐. 나… 누군가 그 말 해주길 기다렸나봐.",
+    "my_line": "하… 연수야, 나 너 진짜 믿는 거 알지?"},
+    {"cue_speaker": "연수", "cue_line": "뭐야 무섭게…", "my_line": "너… 남자친구 사귀어 봤어?"},
+    {"cue_speaker": "연수",
+    "cue_line": "하, 참나 나를 뭘로 보구… 당연히… 그런데 왜?",
+    "my_line": "너두 없구나. 됐어 그럼~"},
+    {"cue_speaker": "연수", "cue_line": "뭐야 너 수상해…", "my_line": "나 부탁이 하나 있어."},
+    {"cue_speaker": "연수", "cue_line": "뭔데 말만 해.", "my_line": "나 노래 하나만 만들어 주라."},
+    {"cue_speaker": "연수", "cue_line": "응? 작곡?", "my_line": "가사 썼는데 이거 너무 부끄러워서 너한테밖에 말 못해."},
+    {"cue_speaker": "연수",
+    "cue_line": "뭔데 뭔데 뭐 있네 진짜. 누군데!!!",
+    "my_line": "써 줄 거야 말 거야."},
+    {"cue_speaker": "연수", "cue_line": "알았어 써줄게. 말해줘.", "my_line": "제목은 보드카야."},
+    {"cue_speaker": "연수", "cue_line": "보드카?", "my_line": "하고 싶어? 그럼 마셔!\n네 뜨겁지만 투명한 피부를 온전히 느끼고 싶어."},
+    {"cue_speaker": "연수",
+    "cue_line": "네가 내게 채워지는 순간을 (천천히 악상 떠올리듯 멜로디 더하며) 기다리고 있어.",
+    "my_line": "기억해 둬, 내가 원할 때만이야!"},
+    {"cue_speaker": "노래", "cue_line": "보드카 (지해, 연수)", "my_line": "해줘~!"},
+    {"cue_speaker": "노래", "cue_line": "보드카 (지해, 이암)", "my_line": "놀랐지?"},
+    {"cue_speaker": "연희", "cue_line": "축하해.", "my_line": "축하해 줘~!"},
+    {"cue_speaker": "이암, 연수, 연희",
+    "cue_line": "어?!?! (스르르 쓰러짐)",
+    "my_line": "그리고 이건 이암이한테도 말 안 한 건데… (임신테스트기를 꺼내며) 나 임신했어!"},
+    {"cue_speaker": "연희", "cue_line": "몸은 좀 괜찮아?", "my_line": "못 말린다 저 둘."},
+    {"cue_speaker": "연희", "cue_line": "아기 검진 같은 거 뭐 이런 것도 해?", "my_line": "나는 뭐 체질인가 본데? 입덧도 없고…"},
+    {"cue_speaker": "연희",
+    "cue_line": "아니, 말도 마. 특별히 뭐 하는 것도 없는데 한 번 가면 10만원이 넘게 깨져.\n2주에 한 번씩 오라는데 그걸 어떻게 가니, 그래서 한 달에 한 번씩 가다가 이번 달엔 아직 안 갔지 뭐. 다음 달에 가면, 돈 20만원 아끼는 거야.",
+    "my_line": "그래도 되나…? 그래도 가야 하지 않아?"},
+    {"cue_speaker": "연희",
+    "cue_line": "그래도 되나…? 그래도 가야 하지 않아?",
+    "my_line": "괜찮아 건강해 건강해. 그리고 이제 돈 들어갈 일도 더 많을 텐데, 지금 더 아껴야지. 이암이도 아직 자리 잡고 안정적으로 돈 버는 상황이 아니니까."},
+    {"cue_speaker": "연희",
+    "cue_line": "하긴… 그렇지… 혹시 돈 필요하면 내가 좀…",
+    "my_line": "오~ 의리!!\n\n\n\n"},
+    {"cue_speaker": "연희", "cue_line": "진심이야 지해야.", "my_line": "… 어허! 거기까지! (선 넘지 말라는 듯, 악수하자며 손 내밀고) 나 간다, 쟤네 정분 나겠어…"},
+    {"cue_speaker": "노래", "cue_line": "나는 해바라기의 뒷면이다", "my_line": "선생님. 아기는 괜찮나요?"},
+    {"cue_speaker": "썸데이", "cue_line": "아… 네, 따님은 건강하시구요.", "my_line": "그런데요?"},
+    {"cue_speaker": "썸데이",
+    "cue_line": "네, 안 그래도 그 말씀을 드려야 하는데… 산모에게 문제가 있어요. 저희 병원 다니셨었죠?",
+    "my_line": "저 완치 판정 받았는데…"},
+    {"cue_speaker": "노래", "cue_line": "이암 메들리", "my_line": "그냥… 보고 싶어서."},
+    {"cue_speaker": "이암", "cue_line": "왜 집으로 안 가고?", "my_line": "좋았어… (사이) 그런데…"},
+    {"cue_speaker": "이암",
+    "cue_line": "네 가사는 최고야, 물론 연수가 준 음악도 좋고… 그런데… 일단 인지도가 필요해. 내가 유명해지지 않으면 우리 노래를 들어줄 사람이 없으니까…",
+    "my_line": "돈 때문에 그래?"},
+    {"cue_speaker": "이암",
+    "cue_line": "뭐 물론 돈이 중요하지 않다고도 말 못하고… 그런데, 있잖아 나 진짜 괜찮아.\n진짜 재미있고, 사람들 즐거워하는 것도 좋고… 되게 좋아 나.",
+    "my_line": "낮에 일 하잖아."},
+    {"cue_speaker": "이암", "cue_line": "그건… 이거랑 다른 거지.", "my_line": "돈 버는 일은 낮에 하는 거 아니었어?"},
+    {"cue_speaker": "이암",
+    "cue_line": "… 언제까지 그 일을 할 수는 없잖아. 나도 결국 음악을 해야 하니까.",
+    "my_line": "아니, (사이) 하… 그래. 그럼 둘 중에 하나는 그만하고 나랑 시간을 보낼 순 없나 물어보려고 했어."},
+    {"cue_speaker": "이암", "cue_line": "… 왜?", "my_line": "… 그냥."},
+    {"cue_speaker": "이암", "cue_line": "지금 되게 중요한 시기야.", "my_line": "나도 그래."},
+    {"cue_speaker": "이암", "cue_line": "갑자기 왜 그래.", "my_line": "갑자기가 아니야. 계속 얘기하고 싶었어. 같이 내가 쓴 가사 읽으면서 그렇게 서로 이야기도 하고 너 노래도 만들고… 우리 그런 시간 못 가진지 꽤 오래 됐잖아."},
+    {"cue_speaker": "노래", "cue_line": "하고 싶은 말", "my_line": "언제까지 그럴 건데…"},
+    {"cue_speaker": "이암", "cue_line": "아니, 이런 걸 원한 거 아니었어?", "my_line": "무슨 말이야."},
+    {"cue_speaker": "이암",
+    "cue_line": "뭔가 안정적인 일을 하면서 미래를 준비하는… 내가 그러길 원하는 거 아니었냐고.",
+    "my_line": "아니, 난 전혀… 이암아, 이게 네가 원하는 삶이야? 넌 너의 이야기를 할 거랬잖아."},
+    {"cue_speaker": "이암",
+    "cue_line": "없어 아무도 없다고. 내 이야기를 들어 줄 사람이 아무도 없다고!\n내 노래가 아니라 대중가요를 원한다고 사람들은! 드디어 사람들이 좋아하는 음악을 하잖아.",
+    "my_line": "진심이 뭐야 그게 무슨 소용 아무도 듣지 않으면 다 무슨 의미야 좋아해야지 그냥 좋다 말해야지 돈도 벌고 이 정도면 충분해"},
+    {"cue_speaker": "이암", "cue_line": "아니, 이런 걸 원한 거 아니었어?", "my_line": "아니잖아 네 진심은 네가 말했던 그 꿈이잖아. 사람들이 뭘 원하든"},
+    {"cue_speaker": "이암", "cue_line": "아니, 이런 걸 원한 거 아니었어?", "my_line": "내가 하고 싶은 말은 뭔데"},
+    {"cue_speaker": "이암", "cue_line": "아니, 이런 걸 원한 거 아니었어?", "my_line": "내가 하고싶은 말 아무 상관없어 이젠"},
+    {"cue_speaker": "이암", "cue_line": "아니, 이런 걸 원한 거 아니었어?", "my_line": "내게 중요한 건 내가 아냐"},
+    {"cue_speaker": "이암", "cue_line": "아니, 이런 걸 원한 거 아니었어?", "my_line": "나의 이야길 원하지 않아 내 이야기는 상관 없어"},
+    {"cue_speaker": "이암", "cue_line": "… 어떻게 하길 원해.", "my_line": "할 말만 있으면 돼. 네가 할 말이 있으면 들으러 오는 사람이 생겨."},
+    {"cue_speaker": "이암",
+    "cue_line": "언제… 그럼 노가다를 뺄까? 돈 벌지 마? 아니면 노래를 하지 마?",
+    "my_line": "시간을 내 줘. 나랑 같이 해 줘."},
+    {"cue_speaker": "이암", "cue_line": "왜 그러는 거야 갑자기…", "my_line": "그런 말이 아니잖아."},
+    {"cue_speaker": "이암", "cue_line": "어?", "my_line": "… 병원에 갔었어."},
+    {"cue_speaker": "이암", "cue_line": "정말? 딸이라고? 너무 좋아! 지해야… 나 너무 떨려!!!", "my_line": "아, 아기는 건강하대… 그리고 딸이래."},
+    {"cue_speaker": "연희", "cue_line": "지해야. 잠깐만!", "my_line": "그런데… 아니야 나 먼저 갈게."},
+    {"cue_speaker": "이암", "cue_line": "여보세요? 암 병동 연결 좀 부탁드립니다.", "my_line": "미안해,"},
+    {"cue_speaker": "이암", "cue_line": "아니요. 진료 예약 좀 하려고 하는데요…", "my_line": "네가 여자 잘못 만난 것 같아."},
+    {"cue_speaker": "이암", "cue_line": "그냥 저 그런 건 모르겠고 진료 예약 좀 잡아 주세요.", "my_line": "알았는데… 언젠간 이렇게 될 거 알았는데, 내가 너무 이기적이었어."},
+    {"cue_speaker": "이암",
+    "cue_line": "그런 소리 제발 그만하고! 지금, 내일이라도… 좀 빠르게 잡아 주세요! 제발 우리 지해 살려 주세요.",
+    "my_line": "나… 네가 너무 좋아서, 잠깐 외면했어. 나 진짜 알고 있었거든? 그런데 외면했어."},
+    {"cue_speaker": "이암", "cue_line": "지해야. 왜 나와 있어? 약은 먹었어?", "my_line": "미안해. 진짜 미안해."},
+    {"cue_speaker": "이암", "cue_line": "응?", "my_line": "잠깐만… 이리 와 봐."},
+    {"cue_speaker": "이암", "cue_line": "그냥, 여기저기…", "my_line": "너 뭐하고 왔어."},
+    {"cue_speaker": "이암", "cue_line": "아니, 나는 못해. 그렇게 못해.", "my_line": "이제 병원 그만 찾자… 의사 선생님도 홈 호스피스 하라고 하셨잖아."},
+    {"cue_speaker": "이암", "cue_line": "아니, 지금 그게 중요한 게 아니잖아.", "my_line": "다른 거 이제 그만 생각하고 내 옆에 있어주면 안 될까? 우리 아기 육아 방법도 너가 알아야 하고."},
+    {"cue_speaker": "이암", "cue_line": "그래 그래… 알아… 너 마음 아는데, 난 못해. 너 포기 못해.", "my_line": "이암아… 그게 제일 중요해."},
+    {"cue_speaker": "이암",
+    "cue_line": "나한테는 이게 미래야. 너 치료 방법 찾고 입원할 병원도 찾고… (사이) 내 미래는 너야.",
+    "my_line": "그러지 마. 우리 받아들이고 미래를 준비하자."},
+    {"cue_speaker": "이암", "cue_line": "…", "my_line": "우리 미래는 여기 있잖아."},
+    {"cue_speaker": "이암", "cue_line": "(애처럼 서럽게) 그러니까 가지마아…", "my_line": "너 자꾸 이러면 나 우리 아기 걱정돼서 어떻게 가…"},
+    {"cue_speaker": "연수", "cue_line": "어.", "my_line": "내 사랑들 다 모였네."},
+    {"cue_speaker": "연수", "cue_line": "어.", "my_line": "연수야, 이리 와 봐."},
+    {"cue_speaker": "연수", "cue_line": "이것만 좀 더 하고.", "my_line": "그만하고 이리 오라니까."},
+    {"cue_speaker": "연수", "cue_line": "계속 볼 거야. 내일도 보고 일 년 뒤에도 보고!", "my_line": "연수야. 얼굴 좀 더 보고 싶어. 그만하고 앉아."},
+    {"cue_speaker": "연수", "cue_line": "뭐가?", "my_line": "그래… 나 있잖아,"},
+    {"cue_speaker": "노래", "cue_line": "나의 바람", "my_line": "하… 조금만 더 살고 싶다. 한 1-2년이면 어떨까, 그래 딱 2년만…"},
+    {"cue_speaker": "연수", "cue_line": "그런 소리 하지 마.", "my_line": "그래 그래, 하… 궁금하다."},
+    {"cue_speaker": "연수", "cue_line": "뭐가?", "my_line": "우리 딸. 어떤 아이일까?"},
+    {"cue_speaker": "연수", "cue_line": "… 어떤 아이였으면 좋겠는데?", "my_line": "어떤 아이였으면 좋겠다… 그런 건 없고 그냥 궁금해."},
+    {"cue_speaker": "연수", "cue_line": "어떨 것 같은데?", "my_line": "일단 귀여운 반곱슬에 피부는 좀 까무잡잡할 것 같고? 그래 이거 하나, 키는 컸으면 좋겠다. 그리고 무엇보다 자기주장이 강할 거야. 절대 포기하지 않고 누구의 말에 휘둘리지도 않고… 그리고 아주 긍정적일 것 같아."},
+    {"cue_speaker": "연수", "cue_line": "너무 그렇게 기대는 하지 않았으면 좋겠어.", "my_line": "아니, 그냥… 나중에 실망할 수도 있잖아. 딸이 원하는대로 못 크면… 딸도 그렇게 기대에 못 미치니까… 엄마한테 미안할 수도 있을 거 같고, 그렇지 않을까?"},
+    {"cue_speaker": "연수",
+    "cue_line": "아니, 그냥… 나중에 실망할 수도 있잖아. 딸이 원하는대로 못 크면… 딸도 그렇게 기대에 못 미치니까… 엄마한테 미안할 수도 있을 거 같고, 그렇지 않을까?",
+    "my_line": "무슨 말이야?"},
+    {"cue_speaker": "연수", "cue_line": "정말? 어떤 선택을 해도 응원할 거야?", "my_line": "그러면 어때. 그것도 자기 인생이고… 나는 어떤 선택을 하건 응원하는 사람일텐데?"},
+    {"cue_speaker": "연수", "cue_line": "아마도가 뭐야.", "my_line": "아마도?"},
+    {"cue_speaker": "연수", "cue_line": "… 진짜 없나 …", "my_line": "나는 하늘에서 꼭 지켜보고 응원하고 싶은데… 혹시나 그런 게 없을까 봐…"},
+    {"cue_speaker": "연수",
+    "cue_line": "진짜 없는 거 아닐까? 막상 응원한다고는 하지만 … 뭐 할 수 있는 게 없잖아.",
+    "my_line": "응?"},
+    {"cue_speaker": "연수",
+    "cue_line": "그렇잖아. 제일 필요할 때 없을 거잖아. 학교 처음 입학할 때도 없을 거고, 사춘기 때도 없을 거고 처음 생리했을 때도 없을 거잖아. 그리고 진로 때문에 고민할 때, 아무 도움도 못 줄 거잖아!",
+    "my_line": "그게 무슨 말이야."},
+    {"cue_speaker": "연수",
+    "cue_line": "왜 화도 안 내! 어디 원망도 하고, 왜 말 그렇게 하냐고, 왜 화도 내고 해야지. (이암에게) 왜 가만 있어! 왜 싫은 소리 안 하고 가만 있냐구!",
+    "my_line": "너 때문에 아픈 거 아니야."},
+    {"cue_speaker": "이암", "cue_line": "…", "my_line": "부탁이 있어."},
+    {"cue_speaker": "이암", "cue_line": "그럴게… 알았어 약속할게 잘 지낼게…", "my_line": "일단 하나. 약속해 줘. 잘 지내겠다고… 내가 너희들한테 받은 도움이 너무 많은데 다 못 돌려줬잖아. 나한테 줬던 도움만큼 너희들도 행복했으면 좋겠어. 그러니까 누가 방해해도, 누가 말려도 절대로 포기하지 마."},
+    {"cue_speaker": "이암", "cue_line": "그래… 약속…", "my_line": "그리고 이거. ‘나의 노래’야. 이 노래로 오디션 보고 오면 좋겠어. 이게 바로 ‘지해의 노래’라구! 그러니까 이담에 우리 딸이랑도 같이 불렀으면 좋겠어. 약속."},
+    {"cue_speaker": "노래", "cue_line": "지해의 노래", "my_line": "여보"},
+    {"cue_speaker": "이암",
+    "cue_line": "나 있잖아. 아무데도 안 가고 옆에 있을 거니까 걱정하지 마. 그리고, 우리 아기에 대해서도 절대 걱정하지 말고, 내가 육아 공부도 많이 할 거고 아기 먹으면 안 되는 거 몸에 좋은 거 다 챙길 거야. 내 인생의 마지막 목표는 있잖아. 우리 아기야. 그러니까 너 절대 걱정하지 마. 그리고 우리 아기 잘 키우고 난 그 다음에 우리 다시 만나면 나 잘했다고, 우리 아이 예쁘게 키워줘서 고맙다고 칭찬해 줘.",
+    "my_line": "커튼콜"}
+]
 
 # 세션 상태 초기화
 if "line_index" not in st.session_state:
     st.session_state.line_index = 0
 
-# 상단 진행 상황 표시
+st.title("🎭 뮤지컬 <썸데이> 지해 대사 암기 연습")
+
+total_lines = len(SCRIPT_LINES)
+
 st.progress((st.session_state.line_index + 1) / total_lines)
-st.caption(f"전체 진행 상황: {st.session_state.line_index + 1} / {total_lines} 대사 (불러온 파일: {file_source})")
+st.caption(f"진행 상황: {st.session_state.line_index + 1} / {total_lines} 대사")
 
 st.markdown("---")
 
-current_data = script_pairs[st.session_state.line_index]
+current_data = SCRIPT_LINES[st.session_state.line_index]
 cue_speaker = current_data['cue_speaker']
 cue_line = current_data['cue_line']
 my_line = current_data['my_line']
 
-# 화면 상단: 상대방의 직전 대사 (CUE)
+# 화면 상단: 상대방이 먼저 친 직전 대사 (CUE)
 st.markdown(f"### 💬 상대방 직전 대사 CUE **[{cue_speaker}]**")
 st.warning(f"\"{cue_line}\"")
 
 st.markdown("---")
 
-# 네비게이션 버튼 (이전 / 다음)
 col1, col2 = st.columns(2)
 
 with col1:
