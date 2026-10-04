@@ -84,22 +84,47 @@ if menu == "🎭 지해 대사 연습":
     if pd.isna(prev_line) or prev_line.strip() == "":
         st.info("(이전 대사 없음 / 해당 씬의 첫 대사입니다)")
     else:
-        # '노래' 화자이거나 이전대사/지해대사에 'M' 넘버가 포함된 경우 체크
-        if prev_speaker == '노래' or 'M' in prev_line:
+        if prev_speaker == '노래':
             lines = prev_line.split('\n')
             song_title = lines[0]
             link_url = ""
             for l in lines:
                 if "http" in l:
                     link_url = l.strip()
-            # 만약 지해대사 쪽에도 링크가 있다면 탐색
-            if not link_url and 'http' in str(current_row['지해대사']):
-                for l in str(current_row['지해대사']).split('\n'):
-                    if "http" in l:
-                        link_url = l.strip()
-                        break
             
             st.warning(f"🎵 노래/넘버: **{song_title}**")
+            if link_url:
+                preview_url, original_url = convert_gdrive_link(link_url)
+                if preview_url:
+                    st.markdown(f"🎧 [구글 드라이브 MR 플레이어 창에서 열기]({original_url})")
+                    st.components.v1.iframe(f"https://drive.google.com/file/d/{re.search(r'/file/d/([a-zA-Z0-9_-]+)', original_url).group(1)}/preview", height=100)
+        elif 'M' in prev_line and ('http' in prev_line or any(k in prev_line for k in ['스물이', '운명일', '너한테', '곤충처럼', 'Someday', '보드카', '하고 싶은', '나의 바람', '지해의', '커튼콜'])):
+            # 대사와 넘버가 함께 섞여 있는 경우 분리해서 표시
+            lines = prev_line.split('\n')
+            dialogue_parts = []
+            song_title = ""
+            link_url = ""
+            
+            is_song_section = False
+            for l in lines:
+                if l.strip().startswith('M') and any(k in l for k in ['스물이', '운명일', '너한테', '곤충처럼', 'Someday', '보드카', '하고 싶은', '나의 바람', '지해의', '커튼콜']):
+                    is_song_section = True
+                    song_title = l.strip()
+                elif 'http' in l:
+                    link_url = l.strip()
+                else:
+                    if not is_song_section:
+                        dialogue_parts.append(l)
+                    else:
+                        # 노래 제목 아래 줄들 중 가사나 다른 텍스트일 수 있음
+                        if not song_title:
+                            song_title = l.strip()
+            
+            if dialogue_parts:
+                st.markdown(f"> **[{prev_speaker}]**\n> " + "\n> ".join(dialogue_parts))
+            
+            if song_title:
+                st.warning(f"🎵 노래/넘버: **{song_title}**")
             if link_url:
                 preview_url, original_url = convert_gdrive_link(link_url)
                 if preview_url:
@@ -130,7 +155,6 @@ elif menu == "🎵 넘버(노래) 연습":
     st.title("🎵 넘버(노래) 가사 & MR 연습")
     st.markdown("작품 속 노래(넘버)들의 가사를 확인하고 구글 드라이브 MR을 바로 재생하거나 링크로 열어 연습하세요!")
 
-    # 스마트 넘버 수집 로직 (행 분산 및 M 넘버 완벽 매핑)
     song_map = {}
     for idx, row in df.iterrows():
         prev_text = str(row['이전대사'])
@@ -141,13 +165,11 @@ elif menu == "🎵 넘버(노래) 연습":
             line_str = line.strip()
             if line_str.startswith('M') and any(keyword in line_str for keyword in ['스물이', '운명일', '너한테', '곤충처럼', 'Someday', '보드카', '하고 싶은', '나의 바람', '지해의', '커튼콜']):
                 song_title = line_str
-                # 링크 찾기
                 link = ""
                 for l in combined.split('\n'):
                     if "http" in l:
                         link = l.strip()
                         break
-                # 가사 찾기 (긴 텍스트 선택)
                 lyric = jihae_text if 'http' not in jihae_text else prev_text
                 
                 if song_title not in song_map:
