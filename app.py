@@ -1,13 +1,35 @@
 import streamlit as st
 import pandas as pd
 import re
+import os
 
 st.set_page_config(page_title="썸데이 지해 대사 & 넘버 연습", page_icon="🎭", layout="centered")
 
-# 사용자가 업로드한 원본 파일명 반영
 @st.cache_data
 def load_data():
-    return pd.read_csv("썸데이_지해_큐_대사_정리 - 지해대사+Cue.csv", encoding="utf-8")
+    # 폴더 안에서 'Cue'나 '지해대사'가 포함된 CSV 파일을 자동으로 찾아냄 (파일명 불일치/자모음 분리 에러 원천 차단)
+    target_file = None
+    for file in os.listdir('.'):
+        if file.endswith('.csv') and ('Cue' in file or '지해대사' in file or '썸데이' in file or '썸데이' in file):
+            target_file = file
+            break
+            
+    if not target_file:
+        # 수동으로 지정 가능한 대체 파일명들
+        possible_names = [
+            "썸데이_지해_큐_대사_정리 - 지해대사+Cue.csv",
+            "썸데이_지해_큐_대사_정리 - 지해대사+Cue.csv",
+            "지해대사+Cue.csv"
+        ]
+        for name in possible_names:
+            if os.path.exists(name):
+                target_file = name
+                break
+                
+    if not target_file:
+        raise FileNotFoundError("CSV 데이터 파일을 찾을 수 없습니다. GitHub에 CSV 파일이 업로드되어 있는지 확인해주세요.")
+        
+    return pd.read_csv(target_file, encoding="utf-8")
 
 try:
     df = load_data()
@@ -151,7 +173,7 @@ elif menu == "🎵 넘버(노래) 연습":
                         st.markdown("#### 🎧 MR 재생 플레이어")
                         st.components.v1.iframe(f"https://drive.google.com/file/d/{file_id}/preview", height=150)
             else:
-                st.info("ℹ️️ 이 넘버에는 등록된 MR 링크가 없습니다.")
+                st.info("ℹ 이 넘버에는 등록된 MR 링크가 없습니다.")
             
             st.markdown("---")
             st.subheader("📝 해당 넘버 / 가사 및 대사 내용")
